@@ -1,0 +1,16 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Production builds
+dist/
+*/dist/
+
+# Build artifacts and logs
+*.log
+*.tsbuildinfo
+.DS_Store
+
+# IDEs
+.vscode/
+.idea/
