@@ -1,4 +1,4 @@
-import type { ColorBy, DepthBand, Filters, Level, Period, Quake, SortKey, ViewMode } from './types'
+import type { DepthBand, Filters, Level, Period, Quake, SortKey } from './types'
 
 export const DEFAULT_FILTERS: Filters = {
   period: 'day',
@@ -10,8 +10,7 @@ export const DEFAULT_FILTERS: Filters = {
   reviewed: false,
   type: 'any',
   sort: 'newest',
-  view: 'list',
-  color: 'mag',
+  clouds: false,
 }
 
 export const PERIODS: { value: Period; label: string; short: string }[] = [
@@ -55,6 +54,10 @@ export function safeLevel(level: Level, period: Period): Level {
 const oneOf = <T extends string>(v: string | null, list: readonly T[], fallback: T): T =>
   v && (list as readonly string[]).includes(v) ? (v as T) : fallback
 
+/**
+ * Reads filters from the URL. Parameters from older versions (view=list|map|globe, color=mag|depth)
+ * are ignored: the explorer has one view now, the globe, and they drop out on the next change.
+ */
 export function parseFilters(sp: URLSearchParams): Filters {
   const d = DEFAULT_FILTERS
   const period = oneOf(sp.get('period'), ['hour', 'day', 'week', 'month'] as const, d.period)
@@ -70,8 +73,7 @@ export function parseFilters(sp: URLSearchParams): Filters {
     reviewed: sp.get('reviewed') === '1',
     type: sp.get('type') ?? d.type,
     sort: oneOf(sp.get('sort'), SORTS.map((s) => s.value), d.sort),
-    view: oneOf<ViewMode>(sp.get('view'), ['list', 'map'], d.view),
-    color: oneOf<ColorBy>(sp.get('color'), ['mag', 'depth'], d.color),
+    clouds: sp.get('clouds') === '1',
   }
 }
 
@@ -87,8 +89,7 @@ export function serializeFilters(f: Filters): URLSearchParams {
   if (f.reviewed) sp.set('reviewed', '1')
   if (f.type !== d.type) sp.set('type', f.type)
   if (f.sort !== d.sort) sp.set('sort', f.sort)
-  if (f.view !== d.view) sp.set('view', f.view)
-  if (f.color !== d.color) sp.set('color', f.color)
+  if (f.clouds) sp.set('clouds', '1')
   return sp
 }
 

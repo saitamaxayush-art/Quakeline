@@ -26,10 +26,30 @@ export const CHAPTER_VH: Record<ChapterId, number> = {
   published: 340,
 }
 
-/** Timeline units the title card holds before the scene's own 10 units begin. */
-export const CARD = 2.4
-const SCENE = 10
-const CARD_FRAC = CARD / (CARD + SCENE)
+/**
+ * Restored configuration for the chapter title cards.
+ * Controls the entrance stroke sweep, hold duration, and scrubbed exit animation.
+ */
+export const CARD_CONFIG = {
+  /** Timeline units the title card holds before the scene's own 10 units begin. */
+  cardUnits: 2.4,
+  sceneUnits: 10,
+  entrance: {
+    strokeInDuration: 0.42,
+    strokeOutDuration: 0.5,
+    ease: 'power2.inOut',
+  },
+  exit: {
+    duration: 0.5,
+    y: -48,
+    ease: 'power2.in',
+  },
+} as const
+
+export const CARD = CARD_CONFIG.cardUnits
+export const SCENE = CARD_CONFIG.sceneUnits
+export const CARD_FRAC = CARD / (CARD + SCENE)
+
 /** Converts a chapter's scroll progress into its scene progress (0 while the title card is up). */
 export const sceneP = (p: number) => range(p, CARD_FRAC, 1)
 

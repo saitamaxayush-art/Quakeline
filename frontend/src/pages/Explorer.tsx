@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { ArrowDown, Map as MapIcon, List, Search, SlidersHorizontal, RotateCw, X } from 'lucide-react'
+import { ArrowDown, Globe as GlobeIcon, Search, SlidersHorizontal, RotateCw, X } from 'lucide-react'
 import { useDebounced, useFeed, useFilters, useMedia, useNow, useOnline } from '../hooks'
 import { applyFilters, countActive, DEPTHS, LEVELS, PERIODS, SORTS } from '../lib/filters'
 import { mag, shortAgo, timeAgo, titleCase } from '../lib/format'
@@ -9,12 +9,16 @@ import { Button, Check, CountUp, Kbd, Segmented, Select } from '../components/ui
 import Seismograph from '../components/Seismograph'
 import QuakeList, { ListSkeleton } from '../components/QuakeList'
 import { magClass } from '../lib/scales'
-import WorldMap from '../components/WorldMap'
 import MagHistogram from '../components/MagHistogram'
 import ScaleLegend from '../components/ScaleLegend'
 import QuakeDrawer from '../components/QuakeDrawer'
 import { EmptyState, ErrorState } from '../components/States'
 import type { FeedError } from '../lib/api'
+import { CloudPanel } from '../components/CloudLayer'
+import { useCloudTimeline } from '../lib/clouds/timeline'
+
+// three.js loads only when the globe view is opened.
+const GlobeView = lazy(() => import('../components/GlobeView'))
 
 const WINDOW_MS: Record<Period, number> = {
   hour: 3600e3,
@@ -23,11 +27,15 @@ const WINDOW_MS: Record<Period, number> = {
   month: 30 * 86400e3,
 }
 
+/** Scrolls to a section, leaving room for the header and, where it sticks, the toolbar. */
 function scrollToId(id: string) {
   const el = document.getElementById(id)
   if (!el) return
-  if (window.__lenis) window.__lenis.scrollTo(el, { offset: -76, duration: 1.2 })
-  else el.scrollIntoView({ behavior: 'smooth' })
+  const bar = document.querySelector<HTMLElement>('.toolbar')
+  const sticky = bar && getComputedStyle(bar).position === 'sticky' ? bar.offsetHeight + 12 : 0
+  const offset = -(76 + (id === 'explore' ? 0 : sticky))
+  if (window.__lenis) window.__lenis.scrollTo(el, { offset, duration: 1.2 })
+  else window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY + offset, behavior: 'smooth' })
 }
 
 const ease = [0.22, 1, 0.36, 1] as const
@@ -48,6 +56,31 @@ export default function Explorer() {
   const online = useOnline()
   const isWide = useMedia('(min-width: 980px)')
   const [panelOpen, setPanelOpen] = useState(false)
+
+  // The cloud layer contacts NASA GIBS and OpenWeatherMap only after the visitor turns it on.
+  const clouds = useCloudTimeline(filters.clouds)
+  const toggleClouds = useCallback((v: boolean) => update({ clouds: v }), [update])
+  const showClouds = useCallback(() => update({ clouds: true }), [update])
+  const [cloudOpacity, setCloudOpacity] = useState(0.9)
+  const [dimClouds, setDimClouds] = useState(false)
+
+  // The globe sits below the hero, so three.js loads only when it comes near the viewport
+  // (or when an event is opened, since the globe then turns to it).
+  const globeSlot = useRef<HTMLDivElement>(null)
+  const [globeWanted, setGlobeWanted] = useState(false)
+  useEffect(() => {
+    if (globeWanted) return
+    const el = globeSlot.current
+    if (!el) return
+    const io = new IntersectionObserver(
+      ([e]) => {
+        if (e.isIntersecting) setGlobeWanted(true)
+      },
+      { rootMargin: '600px 0px' },
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [globeWanted])
 
   // Search text is local so typing stays instant, then debounced into the URL.
   const [text, setText] = useState(filters.q)
@@ -104,6 +137,11 @@ export default function Explorer() {
   const selected = useMemo(() => (eventId ? all.find((q) => q.id === eventId) ?? null : null), [eventId, all])
   const openQuake = useCallback((q: Quake) => setEvent(q.id), [setEvent])
   const closeQuake = useCallback(() => setEvent(null), [setEvent])
+  const backToGlobe = useCallback(() => {
+    setEvent(null)
+    // The globe has already turned to the event; bring it into view once the panel is gone.
+    setTimeout(() => scrollToId('globe'), 120)
+  }, [setEvent])
 
   const active = countActive(filters)
   const periodLabel = PERIODS.find((p) => p.value === filters.period)!.label.toLowerCase()
@@ -209,7 +247,8 @@ export default function Explorer() {
             </motion.h1>
             <motion.p variants={rise} custom={2} className="lede">
               Quakeline reads the U.S. Geological Survey's public feed every minute. Filter events by magnitude, depth or
-              place, sort them, see them on a map, and open any one for its full record.
+              place, sort them, see them on a globe with satellite clouds, and open any one for its full record and a local
+              map.
             </motion.p>
             <motion.div variants={rise} custom={3} className="hero-cta">
               <Button size="lg" onClick={() => scrollToId('explore')} icon={<ArrowDown size={18} />}>
@@ -218,13 +257,10 @@ export default function Explorer() {
               <Button
                 size="lg"
                 variant="outline"
-                onClick={() => {
-                  update({ view: 'map' })
-                  scrollToId('explore')
-                }}
-                icon={<MapIcon size={18} />}
+                onClick={() => scrollToId('globe')}
+                icon={<GlobeIcon size={18} />}
               >
-                Open the map
+                Open the globe
               </Button>
             </motion.div>
             <motion.p variants={rise} custom={4} className="hint">
@@ -384,16 +420,6 @@ export default function Explorer() {
               }))}
             />
             <Select label="Sort" hideLabel value={filters.sort} onChange={(v) => update({ sort: v })} options={SORTS} />
-            <Segmented
-              id="view"
-              label="View"
-              value={filters.view}
-              onChange={(v) => update({ view: v })}
-              options={[
-                { value: 'list', label: <span className="seg-ico"><List size={16} /> List</span> },
-                { value: 'map', label: <span className="seg-ico"><MapIcon size={16} /> Map</span> },
-              ]}
-            />
             {!isWide && (
               <Button
                 variant="outline"
@@ -404,6 +430,88 @@ export default function Explorer() {
                 Filters{active ? ` (${active})` : ''}
               </Button>
             )}
+          </div>
+
+          <div className="results-bar">
+            <p className="results-count" aria-live="polite">
+              {loading ? (
+                'Loading events'
+              ) : showError ? (
+                'No data'
+              ) : (
+                <>
+                  Showing <strong>{results.length.toLocaleString('en')}</strong> of {all.length.toLocaleString('en')} events
+                </>
+              )}
+            </p>
+            <div className="chips">
+              <AnimatePresence initial={false}>
+                {chips.map((c) => (
+                  <motion.button
+                    key={c.key}
+                    layout
+                    className="chip"
+                    onClick={c.clear}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    aria-label={`Remove filter ${c.label}`}
+                  >
+                    {c.label}
+                    <X size={13} aria-hidden="true" />
+                  </motion.button>
+                ))}
+              </AnimatePresence>
+            </div>
+            {isFetching && data && <div className="fetchbar" aria-hidden="true" />}
+          </div>
+
+          {error && data && (
+            <div className="inline-warn" role="status">
+              The latest refresh failed ({(error as FeedError).message}). You are seeing data from{' '}
+              {timeAgo(dataUpdatedAt, now)}.
+            </div>
+          )}
+
+          <div id="globe" className="viz-card globe-card">
+            <div ref={globeSlot}>
+              {globeWanted || eventId ? (
+                <Suspense fallback={<GlobeWait />}>
+                  <GlobeView
+                    quakes={results}
+                    selectedId={eventId}
+                    onSelect={openQuake}
+                    tl={clouds}
+                    cloudsOn={filters.clouds}
+                    onShowClouds={showClouds}
+                    cloudOpacity={cloudOpacity}
+                    dimClouds={dimClouds}
+                  />
+                </Suspense>
+              ) : (
+                <GlobeWait />
+              )}
+            </div>
+            <CloudPanel
+              tl={clouds}
+              on={filters.clouds}
+              onToggle={toggleClouds}
+              opacity={cloudOpacity}
+              onOpacity={setCloudOpacity}
+              dim={dimClouds}
+              onDim={setDimClouds}
+            />
+            <div className="viz-legend">
+              <ScaleLegend scale="mag" />
+              <span className="viz-note">
+                <span className="legend-dots" aria-hidden="true">
+                  <i style={{ width: 5, height: 5 }} />
+                  <i style={{ width: 10, height: 10 }} />
+                  <i style={{ width: 18, height: 18 }} />
+                </span>
+                Dot size follows magnitude; rings mark M4.5 and up. Click a dot, or a row in the list, for details and a local map.
+              </span>
+            </div>
           </div>
 
           <div className="explore-grid">
@@ -429,47 +537,6 @@ export default function Explorer() {
             )}
 
             <div className="results">
-              <div className="results-bar">
-                <p className="results-count" aria-live="polite">
-                  {loading ? (
-                    'Loading events'
-                  ) : showError ? (
-                    'No data'
-                  ) : (
-                    <>
-                      Showing <strong>{results.length.toLocaleString('en')}</strong> of {all.length.toLocaleString('en')} events
-                    </>
-                  )}
-                </p>
-                <div className="chips">
-                  <AnimatePresence initial={false}>
-                    {chips.map((c) => (
-                      <motion.button
-                        key={c.key}
-                        layout
-                        className="chip"
-                        onClick={c.clear}
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.9 }}
-                        aria-label={`Remove filter ${c.label}`}
-                      >
-                        {c.label}
-                        <X size={13} aria-hidden="true" />
-                      </motion.button>
-                    ))}
-                  </AnimatePresence>
-                </div>
-                {isFetching && data && <div className="fetchbar" aria-hidden="true" />}
-              </div>
-
-              {error && data && (
-                <div className="inline-warn" role="status">
-                  The latest refresh failed ({(error as FeedError).message}). You are seeing data from{' '}
-                  {timeAgo(dataUpdatedAt, now)}.
-                </div>
-              )}
-
               <AnimatePresence mode="wait">
                 {loading ? (
                   <motion.div key="load" exit={{ opacity: 0 }}>
@@ -487,38 +554,6 @@ export default function Explorer() {
                     canWiden={!!nextPeriod}
                     onWiden={() => nextPeriod && update({ period: nextPeriod })}
                   />
-                ) : filters.view === 'map' ? (
-                  <motion.div
-                    key="map"
-                    className="map-wrap"
-                    initial={{ opacity: 0, scale: 0.985 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.4, ease }}
-                  >
-                    <WorldMap quakes={results} onSelect={openQuake} selectedId={eventId} colorBy={filters.color} />
-                    <div className="map-legend">
-                      <Segmented
-                        id="color"
-                        label="Colour dots by"
-                        value={filters.color}
-                        onChange={(v) => update({ color: v })}
-                        options={[
-                          { value: 'mag', label: 'By magnitude' },
-                          { value: 'depth', label: 'By depth' },
-                        ]}
-                      />
-                      <ScaleLegend scale={filters.color} />
-                      <span className="map-note">
-                        <span className="legend-dots" aria-hidden="true">
-                          <i style={{ width: 5, height: 5 }} />
-                          <i style={{ width: 10, height: 10 }} />
-                          <i style={{ width: 18, height: 18 }} />
-                        </span>
-                        Dot size follows magnitude. Click a dot for details.
-                      </span>
-                    </div>
-                  </motion.div>
                 ) : (
                   <motion.div key="list" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                     <div className="list-legends">
@@ -583,7 +618,18 @@ export default function Explorer() {
         </div>
       </section>
 
-      <QuakeDrawer quake={selected} all={all} now={now} onClose={closeQuake} onSelect={openQuake} />
+      <QuakeDrawer quake={selected} all={all} now={now} onClose={closeQuake} onSelect={openQuake} onBack={backToGlobe} />
+    </div>
+  )
+}
+
+/** Holds the globe's exact size while three.js loads, so nothing below it moves. */
+function GlobeWait() {
+  return (
+    <div className="globe-wrap">
+      <div className="globe-plate is-waiting" role="status">
+        <span className="mono">Loading the globe</span>
+      </div>
     </div>
   )
 }

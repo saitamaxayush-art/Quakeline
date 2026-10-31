@@ -258,6 +258,24 @@ html.gate-open {
   font-size: 12px;
   color: var(--graphite-on-ink);
 }
+.gate-short {
+  justify-self: start;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-bottom: 1.5px solid currentColor;
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--paper);
+  cursor: pointer;
+}
+.gate-short:hover,
+.gate-short:focus-visible {
+  color: var(--red-on-ink);
+}
 .wipe {
   position: fixed;
   inset: 0;
@@ -335,6 +353,7 @@ html.gate-open {
   inset: 0;
   width: 100%;
   height: 100%;
+  pointer-events: none;
 }
 .ch-card-stroke {
   transform: scaleX(0);
@@ -790,6 +809,13 @@ html.gate-open {
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  border: 0;
+  cursor: pointer;
+  transition: background var(--dur-sm);
+}
+.rig-cue:hover,
+.rig-cue:focus-visible {
+  background: var(--red);
 }
 .rig-cue svg {
   animation: cue-nudge 1.4s var(--ease-in-out) infinite;

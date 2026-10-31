@@ -1,7 +1,8 @@
 import { forwardRef, type ReactNode } from 'react'
 import type { Quake, Period } from '../../lib/types'
 import { gsap, ScrollTrigger } from '../../lib/scroll'
-import { CARD, CHAPTERS, CHAPTER_VH, type ChapterId } from '../stage'
+import { prefersReducedMotion } from '../../lib/motion'
+import { CARD, CARD_CONFIG, CHAPTERS, CHAPTER_VH, type ChapterId } from '../stage'
 
 export interface StoryData {
   hero: Quake
@@ -24,8 +25,12 @@ interface ChapterHooks {
 /** The ink-stroke reveal of a chapter's title card, kept per section so it can be replayed. */
 const reveals = new WeakMap<Element, Timeline>()
 
+/** Shows a chapter's title card and draws it in. Used for Ch. 1 when the gate closes: the
+ *  chapter starts at scroll 0, so its ScrollTrigger never fires onEnter on its own. */
 export function playCard(section: Element | null) {
-  if (section) reveals.get(section)?.restart()
+  if (!section) return
+  gsap.set(section.querySelector('.ch-card'), { autoAlpha: 1, y: 0 })
+  reveals.get(section)?.restart()
 }
 
 /**
@@ -36,16 +41,33 @@ export function playCard(section: Element | null) {
 export function chapterTimeline(section: HTMLElement | null, hooks: ChapterHooks = {}): Timeline {
   const scene = gsap.timeline({ defaults: { ease: 'none' } })
   if (!section) return scene
-  const card = section.querySelector('.ch-card')
-  const stroke = section.querySelector('.ch-card-stroke')
-  const ink = section.querySelectorAll('.ch-card-ink')
+  const card = section.querySelector<HTMLElement>('.ch-card')
+  const stroke = section.querySelector<SVGElement>('.ch-card-stroke')
+  const ink = section.querySelectorAll<HTMLElement>('.ch-card-ink')
+  const still = prefersReducedMotion()
+  const { entrance, exit } = CARD_CONFIG
+
+  // Clean initial state without layout shift or edge flicker. The card stays hidden until its
+  // chapter is entered, so an empty paper box never slides up with the incoming frame.
+  if (still) {
+    gsap.set(ink, { autoAlpha: 1 })
+    if (stroke) gsap.set(stroke, { scaleX: 0 })
+  } else {
+    gsap.set(card, { autoAlpha: 0 })
+    gsap.set(ink, { autoAlpha: 0 })
+    if (stroke) gsap.set(stroke, { scaleX: 0, transformOrigin: '0% 50%' })
+  }
 
   const reveal = gsap.timeline({ paused: true })
-  reveal
-    .fromTo(ink, { autoAlpha: 0 }, { autoAlpha: 0, duration: 0.01 })
-    .fromTo(stroke, { scaleX: 0, transformOrigin: '0% 50%' }, { scaleX: 1, duration: 0.42, ease: 'power2.inOut' })
-    .set(ink, { autoAlpha: 1 })
-    .to(stroke, { scaleX: 0, transformOrigin: '100% 50%', duration: 0.5, ease: 'power2.inOut' })
+  if (still) {
+    reveal.set(ink, { autoAlpha: 1 })
+  } else {
+    reveal
+      .set(ink, { autoAlpha: 0 })
+      .fromTo(stroke, { scaleX: 0, transformOrigin: '0% 50%' }, { scaleX: 1, duration: entrance.strokeInDuration, ease: entrance.ease })
+      .set(ink, { autoAlpha: 1 })
+      .to(stroke, { scaleX: 0, transformOrigin: '100% 50%', duration: entrance.strokeOutDuration, ease: entrance.ease })
+  }
   reveals.set(section, reveal)
 
   const master = gsap.timeline({
@@ -55,15 +77,32 @@ export function chapterTimeline(section: HTMLElement | null, hooks: ChapterHooks
       ...SCRUB,
       onUpdate: hooks.onUpdate,
       onToggle: hooks.onToggle,
-      onEnter: () => reveal.restart(),
-      onEnterBack: () => reveal.progress(1),
+      onEnter: () => {
+        gsap.set(card, { autoAlpha: 1, y: 0 })
+        // Already drawn (Ch. 1 after the gate): keep it, do not draw it twice.
+        if (reveal.progress() === 0) reveal.restart()
+      },
+      onEnterBack: () => {
+        gsap.set(card, { autoAlpha: 1, y: 0 })
+        reveal.progress(1)
+      },
       onLeaveBack: (self) => {
         reveal.pause(0)
+        gsap.set(card, { autoAlpha: 0 })
         hooks.onLeaveBack?.(self)
+      },
+      onLeave: () => {
+        gsap.set(card, { autoAlpha: 0 })
       },
     },
   })
-  master.fromTo(card, { autoAlpha: 1, y: 0 }, { autoAlpha: 0, y: -48, duration: 0.5, ease: 'power2.in' }, CARD - 0.5)
+
+  master.fromTo(
+    card,
+    { autoAlpha: 1, y: 0 },
+    { autoAlpha: 0, y: still ? 0 : exit.y, duration: exit.duration, ease: still ? 'none' : exit.ease, immediateRender: false },
+    CARD - exit.duration,
+  )
   master.add(scene, CARD)
   return scene
 }

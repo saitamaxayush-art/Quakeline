@@ -32,7 +32,7 @@ export default function Footer() {
             </li>
             <li>
               <Link to="/credits" viewTransition>
-                Images, textures and station data
+                Images, satellite imagery and station data
               </Link>
             </li>
           </ul>

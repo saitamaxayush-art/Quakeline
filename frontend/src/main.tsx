@@ -10,6 +10,10 @@ import 'lenis/dist/lenis.css'
 import './styles/global.css'
 import App from './App'
 
+// Every visit opens at the top (on the story, the gate); the browser must not restore an old position.
+if ('scrollRestoration' in history) history.scrollRestoration = 'manual'
+window.scrollTo(0, 0)
+
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000 } },
 })

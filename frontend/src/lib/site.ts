@@ -2,5 +2,5 @@
 export const SITE = {
   name: 'Quakeline',
   contactEmail: 'you@example.com',
-  lastUpdated: '29 October 2026',
+  lastUpdated: '31 October 2026',
 }

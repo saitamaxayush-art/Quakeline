@@ -12,18 +12,16 @@ const Terms = lazy(() => import('./pages/Terms'))
 const Credits = lazy(() => import('./pages/Credits'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 import Story from './story/Story'
-import { readGate } from './lib/story'
 import { scrollToTop, startSmoothScroll } from './lib/scroll'
 import { DUR, EASE } from './lib/motion'
 
 /** Explorer parameters that used to live on "/". Links shared before the story existed still open the right view. */
-const EXPLORER_KEYS = ['period', 'level', 'q', 'min', 'depth', 'tsunami', 'reviewed', 'type', 'sort', 'view', 'color', 'event']
+const EXPLORER_KEYS = ['period', 'level', 'q', 'min', 'depth', 'tsunami', 'reviewed', 'type', 'sort', 'view', 'color', 'clouds', 'event']
 
 function Home() {
   const { search } = useLocation()
   const sp = new URLSearchParams(search)
   if (EXPLORER_KEYS.some((k) => sp.has(k))) return <Navigate to={`/explore${search}`} replace />
-  if (readGate() === 'skip') return <Navigate to="/explore" replace />
   return <Story />
 }
 

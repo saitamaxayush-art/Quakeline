@@ -78,9 +78,6 @@ export type Period = 'hour' | 'day' | 'week' | 'month'
 export type Level = 'all' | '1.0' | '2.5' | '4.5' | 'significant'
 export type SortKey = 'newest' | 'oldest' | 'strongest' | 'weakest' | 'deepest' | 'shallowest' | 'felt'
 export type DepthBand = 'any' | 'shallow' | 'intermediate' | 'deep'
-export type ViewMode = 'list' | 'map'
-/** Which data scale colours the map dots. */
-export type ColorBy = 'mag' | 'depth'
 
 export interface Filters {
   period: Period
@@ -92,6 +89,6 @@ export interface Filters {
   reviewed: boolean
   type: string
   sort: SortKey
-  view: ViewMode
-  color: ColorBy
+  /** Satellite cloud imagery layer on the map and globe. */
+  clouds: boolean
 }

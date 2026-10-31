@@ -167,6 +167,34 @@ export const RuptureRig = forwardRef<RuptureRigHandle, Props>(function RuptureRi
   const [phase, setPhase] = useState<Phase>('idle')
   const [touch] = useState(() => typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches)
 
+  const shouldLock = lockDuringHold && !reduced
+  const lockedRef = useRef(false)
+  const rupturedAt = useRef(0)
+  const unlockedRef = useRef(false)
+  const touchStartY = useRef<number | null>(null)
+  const touchStartedAt = useRef(0)
+
+  const applyScrollLock = useCallback(
+    (lock: boolean) => {
+      if (!shouldLock) return
+      lockedRef.current = lock
+      lockScroll(lock)
+    },
+    [shouldLock],
+  )
+
+  const unlock = useCallback(
+    (andScroll = false) => {
+      if (unlockedRef.current) return
+      unlockedRef.current = true
+      applyScrollLock(false)
+      if (andScroll && window.__lenis) {
+        window.__lenis.scrollTo(window.scrollY + window.innerHeight * 0.45, { duration: 1.2 })
+      }
+    },
+    [applyScrollLock],
+  )
+
   const setP = useCallback((p: Phase) => {
     if (phaseRef.current === p) return
     phaseRef.current = p
@@ -207,7 +235,11 @@ export const RuptureRig = forwardRef<RuptureRigHandle, Props>(function RuptureRi
     holding.current = false
     drain.current?.kill()
     t.current = 1
-    if (lockDuringHold) lockScroll(false)
+    // Keep scroll locked for the whole interaction and after the rupture fires
+    applyScrollLock(true)
+    rupturedAt.current = performance.now()
+    unlockedRef.current = false
+
     setP('done')
     draw()
     document.documentElement.classList.add('is-ruptured')
@@ -245,21 +277,22 @@ export const RuptureRig = forwardRef<RuptureRigHandle, Props>(function RuptureRi
     tl.fromTo(q('.rig-after'), { autoAlpha: 0, y: 24 }, { autoAlpha: 1, y: 0, duration: 0.6, ease: 'power3.out' }, 0.7)
     // The stored strain is gone: the gauge drains.
     tl.to(t, { current: 0, duration: 1.4, ease: 'power2.inOut', onUpdate: draw }, 0.5)
-  }, [draw, lockDuringHold, reduced, setP])
+  }, [applyScrollLock, draw, reduced, setP])
 
   const start = useCallback(() => {
     if (phaseRef.current === 'done' || holding.current) return
     drain.current?.kill()
     holding.current = true
-    if (lockDuringHold) lockScroll(true)
+    applyScrollLock(true)
     setP('building')
-  }, [lockDuringHold, setP])
+  }, [applyScrollLock, setP])
 
   const release = useCallback(() => {
     if (!holding.current) return
     holding.current = false
-    if (lockDuringHold) lockScroll(false)
+    // Keep scroll locked if rupture has already occurred
     if (phaseRef.current === 'done') return
+    applyScrollLock(false)
     setP('early')
     if (reduced) {
       t.current = 0
@@ -267,11 +300,14 @@ export const RuptureRig = forwardRef<RuptureRigHandle, Props>(function RuptureRi
       return
     }
     drain.current = gsap.to(t, { current: 0, duration: 0.7, ease: 'power2.out', onUpdate: draw })
-  }, [draw, lockDuringHold, reduced, setP])
+  }, [applyScrollLock, draw, reduced, setP])
 
   const reset = useCallback(() => {
     const el = root.current
     holding.current = false
+    unlockedRef.current = false
+    rupturedAt.current = 0
+    applyScrollLock(false)
     drain.current?.kill()
     t.current = 0
     phaseRef.current = 'idle'
@@ -287,7 +323,7 @@ export const RuptureRig = forwardRef<RuptureRigHandle, Props>(function RuptureRi
     gsap.set(q('.rig-flood'), { opacity: 0 })
     gsap.set(q('.rig-after'), { autoAlpha: 0 })
     draw()
-  }, [draw])
+  }, [applyScrollLock, draw])
 
   useImperativeHandle(handle, () => ({ reset }), [reset])
 
@@ -325,16 +361,24 @@ export const RuptureRig = forwardRef<RuptureRigHandle, Props>(function RuptureRi
     const io = new IntersectionObserver(([e]) => (inView.current = e.intersectionRatio >= 0.5), { threshold: [0, 0.5, 1] })
     io.observe(el)
     const down = (ev: KeyboardEvent) => {
-      if (ev.code !== 'Space' || !inView.current || phaseRef.current === 'done') return
+      if (ev.code !== 'Space' && ev.key !== ' ') return
       const tag = (ev.target as HTMLElement | null)?.tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA') return
-      ev.preventDefault()
-      if (!ev.repeat) start()
+      // Space must never scroll when this scene is in view or post-rupture
+      if (inView.current || (phaseRef.current === 'done' && !unlockedRef.current)) {
+        ev.preventDefault()
+        if (ev.repeat) return
+        if (phaseRef.current !== 'done') start()
+      }
     }
     const up = (ev: KeyboardEvent) => {
-      if (ev.code !== 'Space' || !inView.current) return
-      ev.preventDefault()
-      release()
+      if (ev.code !== 'Space' && ev.key !== ' ') return
+      const tag = (ev.target as HTMLElement | null)?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return
+      if (inView.current || (phaseRef.current === 'done' && !unlockedRef.current)) {
+        ev.preventDefault()
+        release()
+      }
     }
     window.addEventListener('keydown', down)
     window.addEventListener('keyup', up)
@@ -345,13 +389,77 @@ export const RuptureRig = forwardRef<RuptureRigHandle, Props>(function RuptureRi
     }
   }, [start, release])
 
+  // Deliberate unlock after rupture: 700ms grace period, ignores momentum, unlocks on new input.
+  useEffect(() => {
+    if (phase !== 'done' || !shouldLock) return
+    const GRACE_MS = 700
+
+    const onWheel = (e: WheelEvent) => {
+      if (unlockedRef.current) return
+      const now = performance.now()
+      if (now - rupturedAt.current < GRACE_MS) return
+      if (e.deltaY > 0) {
+        unlock()
+        if (window.__lenis) {
+          window.__lenis.scrollTo(window.scrollY + Math.max(e.deltaY, 60), { immediate: false })
+        }
+      }
+    }
+
+    const onTouchStart = (e: TouchEvent) => {
+      touchStartedAt.current = performance.now()
+      touchStartY.current = e.touches[0].clientY
+    }
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (unlockedRef.current || touchStartY.current === null) return
+      if (touchStartedAt.current - rupturedAt.current < GRACE_MS) return
+      const dy = touchStartY.current - e.touches[0].clientY
+      if (dy > 20) {
+        unlock()
+        if (window.__lenis) {
+          window.__lenis.scrollTo(window.scrollY + 80, { immediate: false })
+        }
+      }
+    }
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (unlockedRef.current) return
+      if (e.key === ' ' || e.code === 'Space' || e.repeat) {
+        if (e.key === ' ' || e.code === 'Space') e.preventDefault()
+        return
+      }
+      const now = performance.now()
+      if (now - rupturedAt.current < GRACE_MS) return
+      if (e.key === 'ArrowDown' || e.key === 'PageDown') {
+        unlock()
+        if (window.__lenis) {
+          const dist = e.key === 'PageDown' ? window.innerHeight * 0.8 : 120
+          window.__lenis.scrollTo(window.scrollY + dist, { immediate: false })
+        }
+      }
+    }
+
+    window.addEventListener('wheel', onWheel, { passive: true })
+    window.addEventListener('touchstart', onTouchStart, { passive: true })
+    window.addEventListener('touchmove', onTouchMove, { passive: true })
+    window.addEventListener('keydown', onKeyDown)
+
+    return () => {
+      window.removeEventListener('wheel', onWheel)
+      window.removeEventListener('touchstart', onTouchStart)
+      window.removeEventListener('touchmove', onTouchMove)
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [phase, shouldLock, unlock])
+
   // Never leave the page locked if the scene unmounts mid-hold.
   useEffect(
     () => () => {
-      if (holding.current && lockDuringHold) lockScroll(false)
+      if (shouldLock) lockScroll(false)
       document.documentElement.classList.remove('is-ruptured')
     },
-    [lockDuringHold],
+    [shouldLock],
   )
 
   const done = phase === 'done'
@@ -389,6 +497,14 @@ export const RuptureRig = forwardRef<RuptureRigHandle, Props>(function RuptureRi
             className="hold"
             aria-label="Hold to load the fault"
             aria-describedby="rig-instruction"
+            onFocus={() => {
+              if (shouldLock) window.__lenis?.stop()
+            }}
+            onBlur={() => {
+              if (shouldLock && !lockedRef.current && !holding.current) {
+                window.__lenis?.start()
+              }
+            }}
             onPointerDown={(ev) => {
               ev.currentTarget.setPointerCapture(ev.pointerId)
               start()
@@ -397,13 +513,17 @@ export const RuptureRig = forwardRef<RuptureRigHandle, Props>(function RuptureRi
             onPointerCancel={release}
             onLostPointerCapture={release}
             onKeyDown={(ev) => {
-              if ((ev.key === 'Enter' || ev.key === ' ') && !ev.repeat) {
+              if (ev.key === 'Enter' || ev.key === ' ' || ev.code === 'Space') {
                 ev.preventDefault()
+                if (ev.repeat) return
                 start()
               }
             }}
             onKeyUp={(ev) => {
-              if (ev.key === 'Enter' || ev.key === ' ') release()
+              if (ev.key === 'Enter' || ev.key === ' ' || ev.code === 'Space') {
+                ev.preventDefault()
+                release()
+              }
             }}
             onContextMenu={(ev) => ev.preventDefault()}
           >
@@ -417,9 +537,9 @@ export const RuptureRig = forwardRef<RuptureRigHandle, Props>(function RuptureRi
         <div className="rig-after" aria-hidden={!done}>
           <Caption segs={['The fault slipped.', { hl: 'The stored strain' }, 'was released as seismic waves.']} />
           <Caption segs={place} />
-          <p className="rig-cue">
+          <button type="button" className="rig-cue" onClick={() => unlock(true)}>
             Scroll to follow the waves <ArrowDown size={18} aria-hidden="true" />
-          </p>
+          </button>
         </div>
       </div>
 

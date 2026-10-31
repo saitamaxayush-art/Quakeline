@@ -123,6 +123,8 @@ export default function Globe({ quakes, focus, frame, textureUrl, overlay, detai
   const group = useRef<Group>(null)
   const dots = useRef<InstancedMesh>(null)
   const marker = useRef<Mesh>(null)
+  const cloudMesh = useRef<Mesh>(null)
+  const ringMesh = useRef<Mesh>(null)
   const earth = useTexture(textureUrl)
   earth.colorSpace = SRGBColorSpace
   earth.anisotropy = 4
@@ -198,6 +200,9 @@ export default function Globe({ quakes, focus, frame, textureUrl, overlay, detai
 
     cloudMat.uniforms.uTime.value = state.clock.elapsedTime
     cloudMat.uniforms.uOpacity.value = f.clouds
+    // Skip the cloud and wave shells entirely when they would draw nothing.
+    if (cloudMesh.current) cloudMesh.current.visible = f.clouds > 0.004
+    if (ringMesh.current) ringMesh.current.visible = f.ringP > 0 || f.ringS > 0
     ringMat.uniforms.uP.value = f.ringP
     ringMat.uniforms.uS.value = f.ringS
 
@@ -229,10 +234,10 @@ export default function Globe({ quakes, focus, frame, textureUrl, overlay, detai
       <lineSegments geometry={grat}>
         <lineBasicMaterial color="#9a958c" transparent opacity={0.3} />
       </lineSegments>
-      <mesh material={cloudMat}>
+      <mesh ref={cloudMesh} material={cloudMat}>
         <sphereGeometry args={[1.014, seg, seg / 2]} />
       </mesh>
-      <mesh material={ringMat}>
+      <mesh ref={ringMesh} material={ringMat}>
         <sphereGeometry args={[1.007, seg, seg / 2]} />
       </mesh>
       {ordered.length > 0 && (

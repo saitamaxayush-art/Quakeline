@@ -25,7 +25,7 @@ const sections: LegalSection[] = [
     title: 'What is collected',
     body: (
       <>
-        <p>When you use {SITE.name}, two kinds of servers receive requests from your browser:</p>
+        <p>When you use {SITE.name}, these servers receive requests from your browser:</p>
         <ul>
           <li>
             <strong>The server hosting this site.</strong> It sends you the page files. Like most web hosts, it may keep
@@ -41,12 +41,31 @@ const sections: LegalSection[] = [
             </a>
             .
           </li>
+          <li>
+            <strong>NASA GIBS, only if you turn on "Satellite cloud imagery".</strong> The past hours of the cloud layer are
+            image tiles that your browser loads directly from gibs.earthdata.nasa.gov, NASA's Global Imagery Browse Services.
+            NASA therefore receives your IP address and browser details, as described in the{' '}
+            <a href="https://www.nasa.gov/privacy/" target="_blank" rel="noreferrer">
+              NASA web privacy policy
+            </a>
+            .
+          </li>
+          <li>
+            <strong>OpenWeatherMap, only if you turn on the cloud layer, and never directly.</strong> The current hour comes
+            from OpenWeatherMap (OpenWeather Ltd). Your browser asks this site's own server for the tiles, and that server
+            fetches them from OpenWeatherMap with the site's API key. OpenWeatherMap sees the request coming from our server, not
+            from you, and receives nothing about you. See the{' '}
+            <a href="https://openweather.co.uk/privacy-policy" target="_blank" rel="noreferrer">
+              OpenWeather privacy policy
+            </a>
+            .
+          </li>
         </ul>
         <p>
-          Fonts, map outlines, the globe texture (NASA Blue Marble), the historical engravings and the seismic station list are
-          all bundled with the site, so no font, map, image or texture service is contacted. The story page adds no new
-          external requests: it reads the same USGS feed as the explorer. Sources are listed on the{' '}
-          <Link to="/credits">credits page</Link>.
+          With the cloud layer off, which is the default, neither NASA GIBS nor OpenWeatherMap is contacted. Fonts, map
+          outlines, the globe texture (NASA Blue Marble), the historical engravings and the seismic station list are all
+          bundled with the site, so no font, map, image or texture service is contacted. The story page reads the same USGS
+          feed as the explorer and nothing else. Sources are listed on the <Link to="/credits">credits page</Link>.
         </p>
       </>
     ),
@@ -56,8 +75,9 @@ const sections: LegalSection[] = [
     title: 'Search terms and filters',
     body: (
       <p>
-        What you type in the search box and the filters you choose are kept in the page address (for example{' '}
-        <code>?q=alaska&amp;min=4</code>) so that you can bookmark or share a view. They are processed in your browser and are
+        What you type in the search box, the filters you choose, the view (list, map or globe) and whether the cloud layer is
+        on are kept in the page address (for example <code>?q=alaska&amp;min=4&amp;view=globe&amp;clouds=1</code>) so that
+        you can bookmark or share a view. They are processed in your browser and are
         not sent to us. The address may appear in your browser history and in hosting access logs, and if you share the link,
         anyone who opens it will see the same filters.
       </p>
@@ -118,7 +138,7 @@ const sections: LegalSection[] = [
         <p>
           Since we do not keep records about you, there is usually nothing for us to access, correct or delete. Depending on
           where you live, including under India's Digital Personal Data Protection Act, 2023, or the EU GDPR, you may still
-          have rights over data held by the hosting provider or the USGS, and you can contact them directly.
+          have rights over data held by the hosting provider, the USGS or NASA, and you can contact them directly.
         </p>
         <p>You can also use the site through a VPN or a privacy focused browser; it works the same way.</p>
       </>

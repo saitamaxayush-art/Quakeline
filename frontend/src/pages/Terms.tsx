@@ -45,6 +45,11 @@ const sections: LegalSection[] = [
           endorsed by the USGS or the U.S. government.
         </p>
         <p>
+          The optional cloud layer shows satellite imagery from NASA GIBS and OpenWeatherMap for geographic context. It is not
+          a weather forecast, and weather has no known connection to earthquakes. {SITE.name} is not affiliated with NASA,
+          NOAA, the Japan Meteorological Agency or OpenWeather.
+        </p>
+        <p>
           Automatic event solutions are preliminary. Magnitudes, locations and depths are often revised, and some events are
           later deleted. {SITE.name} shows what the feed reports at the time it is fetched and does not correct or verify it.
         </p>

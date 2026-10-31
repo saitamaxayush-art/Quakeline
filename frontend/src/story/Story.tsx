@@ -7,6 +7,7 @@ import Gate from './Gate'
 import InkDefs from './InkDefs'
 import Cursor from './Cursor'
 import StillStory from './StillStory'
+import { playCard } from './chapters/shared'
 import Orbit from './chapters/Orbit'
 import Dive from './chapters/Dive'
 import Stress from './chapters/Stress'
@@ -14,7 +15,6 @@ import Rupture from './chapters/Rupture'
 import Waves from './chapters/Waves'
 import Stations from './chapters/Stations'
 import Published from './chapters/Published'
-import { playCard } from './chapters/shared'
 import ChapterRail from './ChapterRail'
 import { measureSections, stage } from './stage'
 import './story.css'
@@ -38,21 +38,11 @@ export default function Story() {
   const [stored] = useState(readGate)
   const [gate, setGate] = useState<GateState>('open')
   const [load3d, setLoad3d] = useState(false)
-  // Set when the reader picks Ch. 0 on the rail: show the question even to a returning follower.
-  const [ask, setAsk] = useState(false)
   const root = useRef<HTMLDivElement>(null)
   const ready = !!feed.hero
   stage.wide = wide
 
   useEffect(() => resetStage, [])
-
-  // A returning visitor who chose to follow skips the question; the title still writes itself.
-  useEffect(() => {
-    if (stored === 'follow' && !ask && ready && gate === 'open' && !reduced) {
-      setLoad3d(true)
-      setGate('playing')
-    }
-  }, [stored, ask, ready, gate, reduced])
 
   useEffect(() => {
     if (reduced || gate === 'closed') return
@@ -78,14 +68,38 @@ export default function Story() {
     }
   }, [ready, reduced, measure])
 
-  const follow = () => {
+  // The gate only ever leaves on the reader's input: a button, or a scroll that means "follow".
+  const follow = useCallback(() => {
     writeGate('follow')
+    if (reduced) return setGate('closed')
     setLoad3d(true)
     setGate('playing')
-  }
+  }, [reduced])
+
+  useEffect(() => {
+    if (gate !== 'open' || !ready) return
+    let touchY = 0
+    const onWheel = (e: WheelEvent) => e.deltaY > 0 && follow()
+    const onTouchStart = (e: TouchEvent) => (touchY = e.touches[0].clientY)
+    const onTouchMove = (e: TouchEvent) => touchY - e.touches[0].clientY > 30 && follow()
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLButtonElement || e.target instanceof HTMLAnchorElement) return
+      if (['ArrowDown', 'PageDown', 'End', ' '].includes(e.key)) follow()
+    }
+    window.addEventListener('wheel', onWheel, { passive: true })
+    window.addEventListener('touchstart', onTouchStart, { passive: true })
+    window.addEventListener('touchmove', onTouchMove, { passive: true })
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('wheel', onWheel)
+      window.removeEventListener('touchstart', onTouchStart)
+      window.removeEventListener('touchmove', onTouchMove)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [gate, ready, follow])
+
   const reopenGate = () => {
     scrollToTop(true)
-    setAsk(true)
     setGate('open')
   }
   const skip = () => {
@@ -93,13 +107,24 @@ export default function Story() {
     navigate('/explore', { viewTransition: true })
   }
 
+  const gateProps = {
+    count: feed.quakes.length,
+    period: feed.period,
+    loading: feed.loading || (!ready && !feed.error),
+    error: feed.error && !ready ? feed.error : null,
+    remembered: stored === 'skip',
+    onFollow: follow,
+    onSkip: skip,
+    onRetry: feed.retry,
+  }
+
   if (reduced) {
-    if (ready && feed.hero) {
+    if (gate === 'closed' && feed.hero) {
       return <StillStory hero={feed.hero} quakes={feed.quakes} period={feed.period} generated={feed.generated} now={now} />
     }
     return (
       <div className="story">
-        <Gate count={0} period={feed.period} loading={feed.loading} error={feed.error} auto={false} onFollow={() => {}} onSkip={skip} onRetry={feed.retry} onDone={() => {}} playing={false} />
+        <Gate {...gateProps} onDone={() => {}} playing={false} />
       </div>
     )
   }
@@ -129,17 +154,11 @@ export default function Story() {
       )}
       {gate !== 'closed' && (
         <Gate
-          count={feed.quakes.length}
-          period={feed.period}
-          loading={feed.loading || (!ready && !feed.error)}
-          error={feed.error && !ready ? feed.error : null}
-          auto={stored === 'follow' && !ask}
-          onFollow={follow}
-          onSkip={skip}
-          onRetry={feed.retry}
+          {...gateProps}
           onDone={() => {
             setGate('closed')
-            playCard(document.querySelector('[data-ch="orbit"]'))
+            // Ch. 1 begins at the top of the page: draw its title card as the gate wipes away.
+            requestAnimationFrame(() => playCard(root.current?.querySelector('[data-ch="orbit"]') ?? null))
           }}
           playing={gate === 'playing'}
         />

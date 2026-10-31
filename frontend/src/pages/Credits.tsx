@@ -63,6 +63,20 @@ const data: Credit[] = [
     use: 'Approximate arrival times in chapters 5 and 6, interpolated between tabulated points.',
   },
   {
+    what: 'Satellite cloud imagery, past hours: Clean Infrared (10.3 µm, band 13) from GOES-East and GOES-West (ABI, NOAA) and Himawari (AHI, Japan Meteorological Agency), served as WMTS tiles with a time dimension.',
+    source: "NASA Global Imagery Browse Services (GIBS), part of NASA's Earth Science Data and Information System (ESDIS)",
+    href: 'https://www.earthdata.nasa.gov/engage/open-data-services-software/earthdata-developer-portal/gibs-api',
+    licence: 'NASA open data, no restrictions; credit requested',
+    use: 'Cloud layer on the map and globe, one frame per hour. Loaded by your browser only when the layer is on. The infrared colour palette is inverted with the published GIBS colour map to recover cloud-top temperature.',
+  },
+  {
+    what: 'Satellite cloud imagery, current hour: the "clouds_new" weather map layer.',
+    source: 'OpenWeatherMap (OpenWeather Ltd)',
+    href: 'https://openweathermap.org/api/weathermaps',
+    licence: 'CC BY-SA 4.0, OpenWeather data terms',
+    use: "The \"Now\" frame of the cloud layer, fetched through this site's server so the API key stays private.",
+  },
+  {
     what: 'Coastlines for the 2D map: Natural Earth 1:110m, packaged by world-atlas.',
     source: 'Natural Earth',
     href: 'https://github.com/topojson/world-atlas',
@@ -140,7 +154,7 @@ export default function Credits() {
   return (
     <LegalLayout
       title="Credits"
-      intro={<p>Every image, texture and dataset on {SITE.name}, where it came from and under what terms it is used.</p>}
+      intro={<p>Every image, texture, satellite layer and dataset on {SITE.name}, where it came from and under what terms it is used.</p>}
       sections={sections}
     />
   )

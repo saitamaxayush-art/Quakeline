@@ -405,7 +405,7 @@ code {
 .desk .panel,
 .desk .toolbar,
 .desk .rows,
-.desk .map-wrap,
+.desk .viz-card,
 .desk .hero-card,
 .desk .state,
 .desk .list-legends {
@@ -824,15 +824,6 @@ button.latest:hover {
   position: relative;
   font-family: var(--mono);
   font-size: 12.5px;
-}
-.seg-ico {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-family: var(--mono);
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
 }
 
 .field {
@@ -1516,91 +1507,14 @@ fieldset.panel-block legend {
   }
 }
 
-/* Map: hatched land on paper */
-.map-wrap {
+/* Visual cards: the globe card, its legend row and the tooltips shared by the globe and the local map */
+.viz-card {
   background: var(--card);
   border: 1.5px solid var(--ink);
   padding: 12px;
+  margin-bottom: 20px;
 }
-.worldmap {
-  position: relative;
-}
-.worldmap svg {
-  width: 100%;
-  height: auto;
-  display: block;
-}
-.map-sphere {
-  fill: var(--paper);
-  stroke: var(--ink);
-  stroke-width: 1.2;
-}
-.map-grat {
-  fill: none;
-  stroke: var(--rule);
-  stroke-width: 0.6;
-}
-.map-hatch-line {
-  stroke: var(--graphite);
-  stroke-width: 0.8;
-}
-.map-land {
-  fill: url(#map-hatch);
-  stroke: var(--ink);
-  stroke-width: 0.7;
-}
-.map-dot {
-  fill: var(--c);
-  fill-opacity: 0.9;
-  stroke: var(--ink);
-  stroke-width: 0.6;
-  cursor: pointer;
-  transform-box: fill-box;
-  transform-origin: center;
-  transition:
-    fill-opacity var(--dur-xs),
-    transform var(--dur-sm) var(--ease-out);
-}
-.map-dot.mag-none {
-  fill: var(--mag-0);
-}
-.map-dot.mag-4 {
-  stroke-width: 1.6;
-}
-.map-dot:hover,
-.map-dot.is-selected {
-  fill-opacity: 1;
-  transform: scale(1.6);
-}
-.map-dot.is-anim {
-  animation: dotIn 0.6s var(--ease-out) both;
-}
-@keyframes dotIn {
-  from {
-    transform: scale(0);
-    opacity: 0;
-  }
-}
-.map-ripple {
-  fill: none;
-  stroke: var(--ink);
-  stroke-width: 1;
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: ripple 2.2s var(--ease-out) infinite;
-  pointer-events: none;
-}
-@keyframes ripple {
-  from {
-    transform: scale(1);
-    opacity: 0.9;
-  }
-  to {
-    transform: scale(4);
-    opacity: 0;
-  }
-}
-.map-tip {
+.viz-tip {
   position: absolute;
   transform: translate(-50%, calc(-100% - 14px));
   display: grid;
@@ -1616,10 +1530,10 @@ fieldset.panel-block legend {
   box-shadow: 3px 3px 0 var(--ink);
   animation: tipIn 0.18s var(--ease-out);
 }
-.map-tip strong {
+.viz-tip strong {
   font-family: var(--mono);
 }
-.map-tip small {
+.viz-tip small {
   color: var(--graphite);
 }
 @keyframes tipIn {
@@ -1628,7 +1542,7 @@ fieldset.panel-block legend {
     transform: translate(-50%, calc(-100% - 6px));
   }
 }
-.map-legend {
+.viz-legend {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1637,10 +1551,7 @@ fieldset.panel-block legend {
   border-top: 1px solid var(--rule-strong);
   margin-top: 8px;
 }
-.map-legend .seg {
-  height: 38px;
-}
-.map-note {
+.viz-note {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -1657,19 +1568,6 @@ fieldset.panel-block legend {
   display: block;
   border-radius: 50%;
   background: var(--ink);
-}
-.worldmap.is-compact .map-focus-ring {
-  fill: none;
-  stroke: var(--red);
-  stroke-width: 2;
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: ripple 2s var(--ease-out) infinite;
-}
-.map-focus-dot {
-  fill: var(--red);
-  stroke: var(--paper);
-  stroke-width: 2;
 }
 
 /* ---------- Drawer ---------- */
@@ -1788,11 +1686,6 @@ fieldset.panel-block legend {
   font-family: var(--mono);
   font-weight: 600;
   line-height: 1.35;
-}
-.drawer-map {
-  margin-top: 16px;
-  border: 1px solid var(--ink);
-  background: var(--card);
 }
 .facts {
   display: grid;
@@ -2291,4 +2184,614 @@ fieldset.panel-block legend {
 /* Placeholder while a route chunk loads: holds the page height so the footer does not jump up. */
 .route-wait {
   min-height: 100vh;
+}
+
+/* ---------- Light button: paper on the dark globe plate ---------- */
+.btn-light {
+  background: var(--paper);
+  color: var(--ink);
+  border-color: var(--paper);
+}
+.btn-light:hover:not(:disabled) {
+  transform: translate(-2px, -2px);
+  box-shadow: 2px 2px 0 var(--graphite-on-ink);
+}
+.btn-light:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+  transition-duration: 0.06s;
+}
+.btn-light:focus-visible {
+  outline: 2px solid var(--red-on-ink);
+  outline-offset: 2px;
+}
+
+/* ---------- Globe view: an engraved plate inside a paper card ---------- */
+.globe-wrap {
+  position: relative;
+}
+.globe-plate {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  max-height: 72vh;
+  width: 100%;
+  overflow: hidden;
+  background: var(--ink);
+  border: 1.5px solid var(--ink);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.globe-plate:focus-visible {
+  outline: 2px solid var(--red);
+  outline-offset: 3px;
+}
+.globe-plate canvas {
+  display: block;
+}
+.globe-plate.is-waiting {
+  display: grid;
+  place-items: center;
+  color: var(--graphite-on-ink);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: progress;
+}
+.globe-plate.is-waiting span {
+  animation: pulse 1.2s var(--ease-in-out) infinite alternate;
+}
+.globe-tools {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  gap: 6px;
+}
+.globe-tools .btn-sm {
+  min-height: 34px;
+  padding: 6px 10px;
+}
+.globe-hint {
+  position: absolute;
+  left: 12px;
+  bottom: 10px;
+  margin: 0;
+  padding: 3px 7px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--graphite-on-ink);
+  background: var(--ink);
+  pointer-events: none;
+}
+.globe-tip {
+  z-index: 2;
+}
+@media (max-width: 700px) {
+  .globe-plate {
+    aspect-ratio: 1 / 1;
+    max-height: none;
+  }
+  .globe-tools {
+    top: 8px;
+    right: 8px;
+    flex-direction: column;
+  }
+  .globe-tools .btn-sm {
+    width: 36px;
+    min-height: 36px;
+    padding: 0;
+  }
+  .globe-reset > span:not(.btn-icon) {
+    display: none;
+  }
+  .globe-hint {
+    position: static;
+    padding: 8px 0 0;
+    background: none;
+    color: var(--graphite);
+  }
+}
+
+/* ---------- Satellite cloud imagery ---------- */
+.cloud-bar {
+  display: grid;
+  gap: 10px;
+  padding: 12px 6px 4px;
+  margin-top: 8px;
+  border-top: 1px solid var(--rule-strong);
+  min-width: 0;
+}
+.cloud-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px 20px;
+}
+.cloud-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 2px 10px;
+  margin: 0;
+  font-size: 13px;
+  color: var(--graphite);
+  text-align: right;
+  min-width: 0;
+}
+.cloud-meta strong {
+  font-size: 16px;
+  color: var(--ink);
+}
+.cloud-source {
+  flex-basis: 100%;
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+.cloud-controls {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  min-width: 0;
+}
+.cloud-play {
+  flex-shrink: 0;
+  width: 96px;
+}
+.cloud-play:disabled {
+  cursor: not-allowed;
+}
+.cloud-scrub {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  padding: 4px 0 22px;
+}
+.cloud-range {
+  display: block;
+}
+.cloud-range:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+.cloud-range:focus-visible {
+  outline: 2px solid var(--red);
+  outline-offset: 4px;
+}
+.cloud-ticks {
+  position: absolute;
+  left: 7px;
+  right: 7px;
+  top: 30px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  pointer-events: none;
+}
+.cloud-ticks li {
+  position: absolute;
+  top: 0;
+  width: 1.5px;
+  height: 7px;
+  margin-left: -0.75px;
+  background: var(--ink);
+}
+.cloud-ticks li.is-loading {
+  background: var(--rule-strong);
+  animation: pulse 1.2s var(--ease-in-out) infinite alternate;
+}
+.cloud-ticks li.is-error {
+  background: var(--red);
+  height: 4px;
+}
+.cloud-ticks li.is-current {
+  height: 10px;
+  width: 3px;
+  margin-left: -1.5px;
+}
+.cloud-ticks span {
+  position: absolute;
+  top: 9px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--graphite);
+  white-space: nowrap;
+}
+.cloud-ticks li:first-child span {
+  left: 0;
+  transform: none;
+}
+.cloud-ticks li:last-child span {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+.cloud-msg {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 13.5px;
+  border: 1px solid var(--rule-strong);
+  background: var(--paper);
+}
+.cloud-msg.is-warn {
+  border-color: var(--ink);
+  border-left-width: 5px;
+}
+.cloud-msg.is-error {
+  border-color: var(--red);
+  border-left-width: 5px;
+}
+.cloud-progress {
+  position: relative;
+  flex: 1 1 120px;
+  height: 4px;
+  background: var(--rule);
+  overflow: hidden;
+}
+.cloud-progress i {
+  position: absolute;
+  inset: 0;
+  background: var(--ink);
+  transform-origin: left center;
+  transition: transform var(--dur-md) var(--ease-out);
+}
+.cloud-note {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--graphite);
+  max-width: 62em;
+}
+@media (max-width: 600px) {
+  .cloud-meta {
+    justify-content: flex-start;
+    text-align: left;
+  }
+  .cloud-controls {
+    gap: 10px;
+  }
+  .cloud-play {
+    width: auto;
+  }
+  .cloud-play > span:not(.btn-icon) {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cloud-ticks li.is-loading,
+  .globe-plate.is-waiting span {
+    animation: none;
+  }
+}
+
+/* ---------- Globe: cloud label and "Show clouds" on the plate ---------- */
+/* Solid ink behind all text on the plate, so contrast never depends on what is under it:
+   paper on ink 15.76, graphite-on-ink 6.97. */
+#globe {
+  scroll-margin-top: calc(var(--header) + 96px);
+}
+.globe-label {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: grid;
+  gap: 2px;
+  max-width: calc(100% - 190px);
+  margin: 0;
+  padding: 7px 10px;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+.globe-label-src {
+  color: var(--graphite-on-ink);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+.globe-show {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+}
+@media (max-width: 700px) {
+  .globe-label,
+  .globe-show {
+    top: 8px;
+    left: 8px;
+  }
+  .globe-label {
+    max-width: calc(100% - 64px);
+    font-size: 11px;
+  }
+}
+
+/* ---------- Cloud panel additions ---------- */
+.cloud-head {
+  display: grid;
+  gap: 6px;
+}
+.cloud-title {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.cloud-settings {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 28px;
+}
+.cloud-opacity {
+  display: grid;
+  grid-template-columns: auto minmax(120px, 220px) 3.5em;
+  align-items: center;
+  gap: 12px;
+}
+.cloud-opacity output {
+  font-size: 13px;
+  text-align: right;
+}
+@media (max-width: 600px) {
+  .cloud-opacity {
+    grid-template-columns: auto 1fr 3.5em;
+    width: 100%;
+  }
+}
+
+
+/* ---------- Event map in the event panel ---------- */
+/* Muted sea and land (cool grey and paper) so magnitude-coloured markers are the strongest marks.
+   All text sits on paper: the frame bands, or a paper halo. */
+.emap {
+  margin-top: 16px;
+  border: 1.5px solid var(--ink);
+  background: var(--card);
+}
+.emap-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding: 12px 12px 8px;
+}
+.emap-title {
+  margin: 0 0 2px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.emap-sub {
+  margin: 0;
+  font-size: 13px;
+  color: var(--graphite);
+}
+.emap-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  padding: 0 12px 10px;
+}
+.emap-bar .seg {
+  height: 36px;
+}
+.emap-note {
+  margin: 0;
+  padding: 4px 8px;
+  font-size: 12.5px;
+  border-left: 4px solid var(--ink);
+  background: var(--paper);
+}
+.emap-frame {
+  position: relative;
+  overflow: hidden;
+  border-top: 1px solid var(--rule-strong);
+  border-bottom: 1px solid var(--rule-strong);
+}
+.emap-svg {
+  display: block;
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.emap-svg:active {
+  cursor: grabbing;
+}
+.emap-svg:focus-visible {
+  outline: 2px solid var(--red);
+  outline-offset: -2px;
+}
+.emap-svg path {
+  vector-effect: non-scaling-stroke;
+}
+.emap-sea {
+  fill: #c9d0cd;
+}
+.emap-land {
+  fill: #f1ece2;
+  stroke: none;
+}
+.emap-grat {
+  fill: none;
+  stroke: rgb(20 19 18 / 0.14);
+  stroke-width: 0.7;
+}
+.emap-coast {
+  fill: none;
+  stroke: rgb(20 19 18 / 0.7);
+  stroke-width: 0.9;
+}
+.emap-border {
+  fill: none;
+  stroke: var(--graphite);
+  stroke-width: 0.8;
+  stroke-dasharray: 4 3;
+}
+.emap-ring {
+  fill: none;
+  stroke: rgb(20 19 18 / 0.35);
+  stroke-width: 1;
+  stroke-dasharray: 5 5;
+}
+.emap-ring-label,
+.emap-country,
+.emap-epi-label {
+  font-family: var(--mono);
+  paint-order: stroke;
+  stroke: var(--card);
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+.emap-ring-label {
+  font-size: 10.5px;
+  fill: var(--graphite);
+  stroke-width: 3px;
+}
+.emap-country {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  fill: var(--ink);
+  stroke-width: 3px;
+}
+.emap-band {
+  fill: var(--card);
+}
+.emap-edge {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1;
+}
+.emap-tick line {
+  stroke: var(--ink);
+}
+.emap-tick text,
+.emap-scale text {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  fill: var(--graphite);
+}
+.emap-scale rect {
+  fill: rgb(251 248 242 / 0.92);
+  stroke: var(--rule-strong);
+}
+.emap-scale line {
+  stroke: var(--ink);
+  stroke-width: 1.5;
+}
+.emap-near {
+  cursor: pointer;
+  outline: none;
+}
+.emap-hit {
+  fill: transparent;
+}
+.emap-dot {
+  fill: var(--c, var(--mag-0));
+  stroke: var(--ink);
+  stroke-width: 1;
+  transition: transform var(--dur-xs) var(--ease-out);
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.emap-near:hover .emap-dot,
+.emap-near:focus-visible .emap-dot {
+  transform: scale(1.35);
+}
+.emap-near:focus-visible .emap-dot {
+  stroke: var(--red);
+  stroke-width: 2.5;
+}
+.emap-epi-dot {
+  fill: var(--c, var(--mag-0));
+  stroke: var(--ink);
+  stroke-width: 1.5;
+}
+.emap-epi-pulse {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.2;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: emapPulse 2.2s var(--ease-out) infinite;
+}
+@keyframes emapPulse {
+  from {
+    transform: scale(0.7);
+    opacity: 0.8;
+  }
+  to {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+.emap-epi-label {
+  font-size: 13px;
+  font-weight: 600;
+  fill: var(--ink);
+  stroke-width: 4px;
+}
+.emap-wait {
+  position: absolute;
+  left: 52px;
+  right: 0;
+  top: 45%;
+  margin: 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--ink);
+}
+.emap-tools {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.emap-tools .btn-sm {
+  width: 34px;
+  min-height: 34px;
+  padding: 0;
+}
+.emap-summary {
+  margin: 0;
+  padding: 10px 12px 4px;
+  font-size: 13.5px;
+}
+.emap-key {
+  display: grid;
+  gap: 6px;
+  padding: 6px 12px 12px;
+  font-size: 12.5px;
+  color: var(--graphite);
+}
+@media (prefers-reduced-motion: reduce) {
+  .emap-epi-pulse {
+    animation: none;
+    opacity: 0.5;
+  }
 }

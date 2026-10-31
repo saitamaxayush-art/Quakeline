@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { X, ExternalLink, Link2, Copy, Check as CheckIcon, Waves, MapPin } from 'lucide-react'
 import type { Quake } from '../lib/types'
 import { coord, depthLabel, distanceKm, km, localTime, mag, magWord, timeAgo, titleCase, utcTime } from '../lib/format'
-import WorldMap from './WorldMap'
+import EventMap from './EventMap'
 import { magClass } from '../lib/scales'
 import { Button } from './ui'
 
@@ -27,12 +27,15 @@ export default function QuakeDrawer({
   now,
   onClose,
   onSelect,
+  onBack,
 }: {
   quake: Quake | null
   all: Quake[]
   now: number
   onClose: () => void
   onSelect: (q: Quake) => void
+  /** Closes the panel and returns to the globe. */
+  onBack: () => void
 }) {
   const closeRef = useRef<HTMLButtonElement>(null)
   const bodyRef = useRef<HTMLDivElement>(null)
@@ -160,9 +163,7 @@ export default function QuakeDrawer({
                     </div>
                   </div>
 
-                  <div className="drawer-map">
-                    <WorldMap quakes={[quake]} compact focus={quake} />
-                  </div>
+                  <EventMap quake={quake} all={all} onSelect={onSelect} onBack={onBack} />
 
                   <dl className="facts">
                     {stats.map(([k, v]) => (

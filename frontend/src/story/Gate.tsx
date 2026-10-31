@@ -10,8 +10,8 @@ interface Props {
   period: Period
   loading: boolean
   error: FeedError | null
-  /** Set when the visitor already chose "follow" on an earlier visit: no question, just the title. */
-  auto: boolean
+  /** Set when the visitor chose "skip" on an earlier visit: offers a shortcut, never redirects. */
+  remembered: boolean
   onFollow: () => void
   onSkip: () => void
   onRetry: () => void
@@ -19,20 +19,20 @@ interface Props {
   playing: boolean
 }
 
-export default function Gate({ count, period, loading, error, auto, onFollow, onSkip, onRetry, onDone, playing }: Props) {
+export default function Gate({ count, period, loading, error, remembered, onFollow, onSkip, onRetry, onDone, playing }: Props) {
   const root = useRef<HTMLDivElement>(null)
   const firstBtn = useRef<HTMLButtonElement>(null)
   const ready = !loading && !error
 
   useEffect(() => {
-    if (!auto) firstBtn.current?.focus({ preventScroll: true })
-  }, [auto, ready])
+    firstBtn.current?.focus({ preventScroll: true })
+  }, [ready])
 
   useGSAP(
     () => {
       if (!playing) return
       const tl = gsap.timeline({ onComplete: onDone })
-      tl.to('.gate-copy', { autoAlpha: 0, y: -16, duration: auto ? 0.01 : 0.35, ease: 'power2.in' })
+      tl.to('.gate-copy', { autoAlpha: 0, y: -16, duration: 0.35, ease: 'power2.in' })
         .fromTo('.wipe-stroke', { scaleX: 0 }, { scaleX: 1, duration: 0.75, ease: 'expo.inOut', transformOrigin: '0% 50%' })
         .set(root.current, { backgroundColor: 'transparent' })
         .fromTo('.gate-mark', { autoAlpha: 1 }, { autoAlpha: 1, duration: 0.01 })
@@ -80,7 +80,7 @@ export default function Gate({ count, period, loading, error, auto, onFollow, on
               times {span}.
             </h1>
             <div className="gate-btns">
-              <button ref={firstBtn} className="gate-btn" onClick={onFollow} disabled={!ready || auto}>
+              <button ref={firstBtn} className="gate-btn" onClick={onFollow} disabled={!ready}>
                 Follow one
               </button>
               <button className="gate-btn" onClick={onSkip}>
@@ -88,6 +88,11 @@ export default function Gate({ count, period, loading, error, auto, onFollow, on
               </button>
             </div>
           </>
+        )}
+        {remembered && (
+          <button className="gate-short" onClick={onSkip}>
+            Go straight to data →
+          </button>
         )}
         <p className="gate-foot">
           {error ? 'Source: earthquake.usgs.gov' : ready ? 'Every number in this story comes from the live USGS feed.' : 'Reading earthquake.usgs.gov'}

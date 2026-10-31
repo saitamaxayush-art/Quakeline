@@ -71,7 +71,7 @@ export function useFilters() {
     setSp(
       (prev) => {
         const cur = parseFilters(prev)
-        return keepEvent(prev, serializeFilters({ ...DEFAULT_FILTERS, period: cur.period, level: cur.level, view: cur.view, color: cur.color }))
+        return keepEvent(prev, serializeFilters({ ...DEFAULT_FILTERS, period: cur.period, level: cur.level, clouds: cur.clouds }))
       },
       { replace: true },
     )
